@@ -1,107 +1,108 @@
-(function() {
-  'use strict';
+(function () {
+    'use strict'
 
-  angular
-    .module('NarrowItDownApp', [])
-    .controller('NarrowItDownController', NarrowItDownController)
-    .service('MenuSearchService', MenuSearchService)
-    .directive('foundItems', foundItems)
-    .directive('itemsLoaderIndicator', itemsLoaderIndicator)
-    .constant('API', {
-      url: 'https://davids-restaurant.herokuapp.com',
-      endpoint: {
-        items: '/menu_items.json'
-      }
-    });
+    var narrowItDownAppModule = angular.module('NarrowItDownApp', []);
 
-  NarrowItDownController.$inject = ['MenuSearchService'];
-  MenuSearchService.$inject = ['$http', '$filter', 'API'];
+    narrowItDownAppModule.controller('narrowItDownController', NarrowItDownController);
+    narrowItDownAppModule.service('menuSearchService', MenuSearchService);
+    narrowItDownAppModule.directive('foundItems', FoundItemsDirective);
 
-  function foundItems() {
-    var ddo = {
-      restrict: 'E',
-      templateUrl: 'foundList.html',
-      scope: {
-        items: '<',
-        onRemove: '&'
-      }
+
+    function FoundItemsDirective() {
+        var ddo = {
+             templateUrl: 'foundItems.html',
+             scope: { 
+                items: '<',
+                onRemove: '&'
+             },
+             controller: FoundItemsDirectiveController,
+             controllerAs: 'found',
+             bindToController: true
+        };
+        return ddo;
     };
 
-    return ddo;
-  }
+    function FoundItemsDirectiveController() {
+        var found = this;
 
-  function itemsLoaderIndicator() {
-    var ddo = {
-      restrict: 'E',
-      templateUrl: 'loader/itemsloaderindicator.template.html',
-      link: function(scope, element) {
-        scope.$watch('narrowItDown.isLoading', function(newValue, oldValue) {
-          if (newValue === true) {
-            var loadDiv = element.find('div');
-            loadDiv.css('display', 'block');
-          }
-          else {
-            var loadDiv = element.find('div');
-            loadDiv.css('display', 'none');
-          }
-        });
-      }
-    };
-
-    return ddo;
-  }
-
-  function NarrowItDownController(MenuSearchService) {
-    var narrowItDown = this;
-
-    narrowItDown.searchTerm = '';
-    narrowItDown.found = [];
-    narrowItDown.shouldDisplayMessage = false;
-    narrowItDown.isLoading = false;
-
-    narrowItDown.doSearchTerm = function() {
-      if(narrowItDown.searchTerm) {
-        narrowItDown.isLoading = true;
-        MenuSearchService.getMatchedMenuItems(narrowItDown.searchTerm)
-          .then(checkResponse);
-      } else {
-        narrowItDown.found = [];
-        narrowItDown.isLoading = false;
-        narrowItDown.shouldDisplayMessage = true;
-      }
-    };
-
-    narrowItDown.removeItem = function(itemIndex) {
-      console.log(itemIndex);
-      narrowItDown.found.splice(itemIndex, 1);
-    };
-
-    function resetSearch() {
-      narrowItDown.isLoading = false;
-      narrowItDown.shouldDisplayMessage = false;
-      narrowItDown.searchTerm = '';
+        found.nothingFound = function () {
+                return found.items && found.items.length === 0;
+            };  
     }
 
-    function checkResponse(response) {
-      resetSearch();
-      narrowItDown.found = response;
-      if(!(narrowItDown.found.length > 0)) {
-        narrowItDown.shouldDisplayMessage = true;
-      }
-    }
+    MenuSearchService.$inject = ['$http'];
+    function MenuSearchService($http) {
+        var menuSearchService = this;
 
-  }
+        menuSearchService.getMatchedMenuItems = function(searchTerm) {
 
-  function MenuSearchService($http, $filter, API) {
-    var menuSearch = this;
-
-    menuSearch.getMatchedMenuItems = function(searchTerm) {
-      return $http.get(API.url + API.endpoint.items)
-        .then(function(response) {
-          var foundItems = $filter('filter')(response.data.menu_items, {description: searchTerm});
-          foundItems = $filter('orderBy')(foundItems, 'name');
-          return foundItems;
-        });
+            return $http.get('https://davids-restaurant.herokuapp.com/menu_items.json')
+                        .then(function (result) {
+                            if(!searchTerm) {
+                                return [];
+                            }
+                            var foundItems = result.data.menu_items.filter(item => item.description.indexOf(searchTerm) !== -1);                           
+                            return foundItems;
+                    });
+        }
     };
-  }
+
+    NarrowItDownController.$inject = ['menuSearchService'];
+    function NarrowItDownController(menuSearchService) {
+        var narrowItDownController = this;
+        //narrowItDownController.found = [];
+
+        narrowItDownController.search = function(searchTerm) {
+            menuSearchService.getMatchedMenuItems(searchTerm)
+                .then(result => {
+                    narrowItDownController.found = result;
+                });
+        };
+
+        narrowItDownController.removeItem = function(index) {
+            narrowItDownController.found.splice(index, 1);
+        };
+    };
+    // function ShoppingListCheckOffService() {
+    //     var shoppingListService = this;
+
+    //     shoppingListService.toBuyList = [
+    //         { name: 'Apples', quantity: 6 },
+    //         { name: 'Pears', quantity: 2 },
+    //         { name: 'Oranges', quantity: 3 },
+    //         { name: 'Peaches', quantity: 4 },
+    //         { name: 'Melons', quantity: 5 },
+    //     ];
+
+    //     shoppingListService.boughtList = [];
+
+    //     shoppingListService.getToBuyList = function () {
+    //         return shoppingListService.toBuyList;
+    //     }
+
+    //     shoppingListService.getBoughtList = function () {
+    //         return shoppingListService.boughtList;
+    //     }
+
+    //     shoppingListService.markAsBought = function (index) {
+    //         shoppingListService.boughtList.push(shoppingListService.toBuyList[index]);
+    //         shoppingListService.toBuyList.splice(index, 1);
+    //     }
+    // }
+
+    // ToBuyController.$inject = ['shoppingListCheckOffService'];
+    // function ToBuyController(shoppingListCheckOffService) {
+    //     var showToBuyList = this;
+    //     showToBuyList.items = shoppingListCheckOffService.getToBuyList();
+
+    //     showToBuyList.markAsBought = function (itemIndex) {
+    //         shoppingListCheckOffService.markAsBought(itemIndex);
+    //     };
+    // }
+
+    // AlreadyBoughtController.$inject = ['shoppingListCheckOffService'];
+    // function AlreadyBoughtController(shoppingListCheckOffService) {
+    //     var alreadyBoughtList = this;
+    //     alreadyBoughtList.items = shoppingListCheckOffService.getBoughtList();
+    // }
 })();
